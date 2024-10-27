@@ -1,5 +1,8 @@
 .venv
-all_papers_2024.xlsx
+.DS_Store
+__pycache__
+
 Result.csv
 all_papers_2024_stats.ipynb
-all_papers_2024.csv
+sample.pdf
+Test.csv

@@ -1,10 +1,14 @@
-from scholarly import scholarly
+from scholarly import scholarly, ProxyGenerator
 import pandas as pd
 import spacy
+import extractText
+from extractText import extract_text
+
+pg = ProxyGenerator()
+success = pg.FreeProxies()
+scholarly.use_proxy(pg)
 
 nlp = spacy.load('en_core_web_md')
-
-df = pd.read_csv('./all_papers_2024.csv')
 
 def get_title_pubs(author_sections):
     dict_array = []
@@ -14,11 +18,6 @@ def get_title_pubs(author_sections):
         dict_array.append({"Title": str.title(title), "Citations": num_citations})
 
     return dict_array
-
-def extract_title(reference):
-    parts = reference.split(').')
-    title = parts[1].split('.')[0].lower().strip().replace('-', '‐').replace('  ', ' ').replace('\n', '')
-    return title
    
 def get_citations(title_pubs_arr, paper_title):
     paper_title = paper_title.lower()
@@ -35,13 +34,10 @@ def get_citations(title_pubs_arr, paper_title):
     return title_pubs_arr.get(paper_title, 0)
    
 def main():
-    read_file = pd.read_excel("all_papers_2024.xlsx") 
-    read_file.to_csv ("all_papers_2024.csv", index = None, header=True)
-    df = pd.DataFrame(pd.read_csv("all_papers_2024.csv"))
+    citations = extract_text()
+    df = pd.DataFrame(citations)
     pd.set_option('display.max_columns', None)
-    df.rename(columns={'Title': 'Reference'}, inplace=True)
-    df.drop(['Oct 19th Citations RG','Oct 19th Citations GS', 'URL on RG', 'URL on GS', '# reads'], axis=1 ,inplace=True)  
-    # Retrieve the author's data, fill-in, and print
+
     search_query = scholarly.search_author('Uyen Trang Nguyen')
     authorSections = scholarly.fill(next(search_query), sections=['publications', 'counts'])
     title_pubs_arr = get_title_pubs(authorSections) # an array of objects {'Title': 'Sample', 'Citations': 10}
@@ -51,7 +47,6 @@ def main():
     unique_title_pubs_arr = df_unique.to_dict(orient='records') # change the dataframe back to array of objects
     array_to_dict = {item['Title'].lower().replace('-', '‐'): item['Citations'] for item in unique_title_pubs_arr} # convert the array of objects to {}
 
-    df['Title'] = df['Reference'].apply(extract_title)  # for every row of Reference, extract its title and place into Title column
     df['Citations'] = df['Title'].apply(lambda x: get_citations(array_to_dict,x)) # for every row of Title, find the associated key 'Title' and get its citations value (these data is from the scholarly api) 
     df.to_csv('Result.csv', index=False)
 
