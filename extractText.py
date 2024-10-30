@@ -17,9 +17,8 @@ def extract_text():
             for match in matches:
                 
                 citation = {
-                    "Title": match[1].lower().replace('-', '‐').replace('‐ ', '‐'),
+                    "Title": match[1].lower(),
                     "Year": match[0],
-                    "Journal Conference": match[2]
                 }
                 citations.append(citation)
     return citations
