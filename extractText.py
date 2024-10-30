@@ -2,9 +2,9 @@ import pdfplumber
 import re
 import pandas as pd
 
-def extract_text():
+def extract_text(file_name):
     citations = []
-    with pdfplumber.open('sample.pdf') as pdf:
+    with pdfplumber.open(file_name) as pdf:
         for page in pdf.pages:
             text = page.extract_text().replace('\n', ' ')
             pattern = r'.\s\((?P<year>\d{4})\). (?P<title>[\w\s:,\-/]+). (?P<journal>[\w\s\-/]+)'
@@ -15,7 +15,6 @@ def extract_text():
             matches = re.findall(pattern, text)
             
             for match in matches:
-                
                 citation = {
                     "Title": match[1].lower(),
                     "Year": match[0],

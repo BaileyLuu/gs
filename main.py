@@ -4,12 +4,16 @@ import spacy
 from spacy.lang.en.stop_words import STOP_WORDS
 import unicodedata
 import re
+import time
+import sys
 import extractText
 from extractText import extract_text
 
-pg = ProxyGenerator()
-success = pg.FreeProxies()
-scholarly.use_proxy(pg)
+def initialize_proxy():
+    pg = ProxyGenerator()   # Set up a ProxyGenerator object to use free proxies
+    success = pg.FreeProxies(wait_time=70)  # This needs to be done only once per session
+    scholarly.use_proxy(pg)
+    return success
 
 nlp = spacy.load('en_core_web_md')
 
@@ -35,42 +39,68 @@ def get_title_pubs(author_sections):
    
 
 def get_citations_url(title_pubs_arr, paper_title):
-    paper_title = paper_title.lower()
-    for title in title_pubs_arr:
-        sent1 = nlp(title)
-        sent2 = nlp(paper_title)
+    sent2 = nlp(paper_title)    # since paper_title is consistent, use nlp() once for efficiency 
+    for index, title in enumerate(title_pubs_arr):
+        sent1 = nlp(title['Title'])
         similarity = sent1.similarity(sent2)
-        if similarity > 0.96:
-            pubs_obj = title_pubs_arr.get(title)
-            title_pubs_arr.pop(title)
-            return pubs_obj
+        if similarity > 0.97:
+            citations = title['Citations']  # get matched both 'Citations' and 'URL' from scholarly api at once
+            scholar_url = title['URL']  
+            del title_pubs_arr[index]       # remove element to iterate array less times
+            return pd.Series({"Citations": citations, "URL": scholar_url})
         
-    return title_pubs_arr.get(paper_title, 0)
+    return pd.Series({"Citations": 0, "URL": "N/A"})
    
 def main():
-    citations = extract_text()
-    df = pd.DataFrame(citations)
-    pd.set_option('display.max_columns', None)
-    df['Cleaned Title Resume'] = df['Title'].apply(remove_punctations)
-    df.to_csv('cleaned_title_resume.csv', index=False)
+    file_name = ""
+    author_name = ""
+    if len(sys.argv) < 3:
+        print("Please provide your resume file and/or your name (if you have google scholar profile)\n\nexample command line:\tpython test.py sample.pdf 'you-name'")
+    else:
+        file_name = sys.argv[1]
+        author_name = sys.argv[2] # if you have an existing google scholar profile
+        # e.g. of command line      python main.py sample.pdf 'James Smith'    
 
-    search_query = scholarly.search_author('Uyen Trang Nguyen')
-    authorSections = scholarly.fill(next(search_query), sections=['publications', 'counts'])
-    title_pubs_arr = get_title_pubs(authorSections) # an array of objects {'Title': 'Sample', 'Citations': 10}
-    for i in range(len(title_pubs_arr)):
-        title_pubs_arr[i]['Title'] = remove_punctations(title_pubs_arr[i]['Title']) # clean the titles got from scholarly api
+        initialized_proxy = initialize_proxy()
+        if initialized_proxy:
+            beginning_time = time.time()
+            citations = extract_text(file_name)
+            df = pd.DataFrame(citations)
+            pd.set_option('display.max_columns', None)
+            df['Cleaned Title Resume'] = df['Title'].apply(remove_punctations)
+            df.to_csv('cleaned_title_resume.csv', index=False)  # for your reference
+            
+            start_time = time.time()    # start timer    
+            search_query = scholarly.search_author(author_name)
+            authorSections = scholarly.fill(next(search_query), sections=['publications', 'counts'])
+            title_pubs_arr = get_title_pubs(authorSections) # an array of objects {'Title': 'Sample', 'Citations': 10}
+            end_time = time.time()      # end timer
+            elapsed_time = end_time - start_time
+            print("completed scholarly api", elapsed_time)
 
-    df2 = pd.DataFrame(title_pubs_arr)
-    df2 = df2.loc[df2.groupby('Title')['Citations'].idxmax()] # if there are duplicates, delete the object that has lower # of citations
-    df2.to_csv('cleaned_title_pubs_arr.csv', index=False)
-    df2_array = df2.to_dict(orient='records') # change the dataframe back to array of objects
-    df2_dict = {item['Title']: item['Citations'] for item in df2_array} # convert the array of objects to {}
+            start_time = time.time()    # start timer    
+            for i in range(len(title_pubs_arr)):
+                title_pubs_arr[i]['Title'] = remove_punctations(title_pubs_arr[i]['Title']) # clean the titles got from scholarly api
+            end_time = time.time()      # end timer    
+            elapsed_time = end_time - start_time
+            print("completed cleaning scholarly api titles", elapsed_time)
 
-    df['Citations'] = df['Cleaned Title Resume'].apply(lambda x: get_citations_url(df2_dict,x)) # for every row of Title, find the associated key 'Title' and get its citations value (these data is from the scholarly api)
-    scholar_url_dict = {item['Title']: item['URL'] for item in df2_array} # convert the array of objects to {}
-    df['URL'] = df['Cleaned Title Resume'].apply(lambda x: get_citations_url(scholar_url_dict,x)) 
+            df2 = pd.DataFrame(title_pubs_arr)
+            df2 = df2.loc[df2.groupby('Title')['Citations'].idxmax()] # if there are duplicates, delete the object that has lower # of citations
+            df2.to_csv('cleaned_title_pubs_arr.csv', index=False)   # for your reference
+            df2_array = df2.to_dict(orient='records') # change the dataframe back to array of objects
+            
+            start_time = time.time()    # start timer    
+            df[['Citations', 'URL']] = df['Cleaned Title Resume'].apply(lambda x: get_citations_url(df2_array,x)) # for every row of Title, find the associated key 'Title' and get its citations/urls value (these data is from the scholarly api)
+            end_time = time.time()      # end timer
+            elapsed_time = end_time - start_time
+            print("completed getting citations and urls", elapsed_time)
 
-    df.to_csv('Result.csv', index=False)
+            df.drop('Cleaned Title Resume',axis='columns', inplace=True)
+            df.to_excel(f'{file_name}_result.xlsx', index=False)
+            ending_time = time.time()
+            total_time = ending_time - beginning_time
+            print("Total Time: ", total_time )
 
 if __name__ == '__main__':
     main()
