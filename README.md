@@ -2,7 +2,7 @@
 
 ## Problem Description
 
-Google Scholar allows authors to export their published works in BibTex/EndNote/RefMan/CSV but without including the number of citations (e.g Cited By #) for each of their work. What if a scholar put their selected articles (in citation format) on resume and want to know the total of citations?
+Google Scholar allows authors to export their published works in BibTex/EndNote/RefMan/CSV but without including the number of citations (e.g Cited By #) for each of their work. What if a scholar put their selected articles (in citation format) on resume and want to know the total of citations of their selected articles?
 
 ## Project Structure
 ``` sh
@@ -33,18 +33,18 @@ Google Scholar allows authors to export their published works in BibTex/EndNote/
     pip install -r requirements.txt
     ```
 
-4. Provide your resume in pdf format on your local project folder and modify the file_name in main.py
-    ```sh
-    def main():
-        file_name = 'your_resume.pdf'
-    ```
-
 ## Usage
 Start the application by providing the command line arguments (your resume pdf file and name of your google scholar profile)
 
 ```sh
 python main.py 'your-resume.pdf' 'your-name'
 ```
+
+**NOTE:** Please make sure that your resume has a list of your publications references in APA format to yield a better result. For example:
+```sh
+Author surname, Initial(s). (Year). Article Title. Journal Title. Volume(Issue): Page Number.
+```
+For this application, article's title extraction is most important. 
 
 ## Approaches
 1. Extract text from pdf using `pdfplumber` library.
